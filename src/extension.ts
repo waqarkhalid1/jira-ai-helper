@@ -182,11 +182,44 @@ async function fetchTicket(context: vscode.ExtensionContext, connections: string
         // Generate AI summary via backend
         const aiSummary = await generateSummary(context, description);
 
-        const doc = await vscode.workspace.openTextDocument({
-            language: 'markdown',
-            content: `${summaryContent}\n## ✨ AI Summary\n${aiSummary}`
-        });
-        await vscode.window.showTextDocument(doc, { preview: false });
+        // Create Webview Panel
+        const panel = vscode.window.createWebviewPanel(
+            'jiraAiSummary', // internal identifier
+            `Jira AI Summary - ${issueKey}`, // title of panel
+            vscode.ViewColumn.One, // show in first editor column
+            { enableScripts: true } // allow JS in Webview
+        );
+
+        // HTML content for Webview
+        panel.webview.html = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Jira AI Summary</title>
+        </head>
+        <body>
+            <h2>Jira Ticket Summary</h2>
+            <pre>${summaryContent}</pre>
+            <h2>✨ AI Summary</h2>
+            <pre id="aiSummary">Generating...</pre>
+
+            <script>
+                // Listen for messages from extension
+                window.addEventListener('message', (event) => {
+                    const msg = event.data;
+                    if (msg.command === 'setSummary') {
+                        document.getElementById('aiSummary').innerText = msg.summary;
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        `;
+
+        // Send AI summary to Webview
+        panel.webview.postMessage({ command: 'setSummary', summary: aiSummary });
+
 
         await vscode.window.showQuickPick(['Do manually', 'Send to Copilot', 'Send to Cursor'], { placeHolder: 'Next step' });
 
@@ -257,7 +290,7 @@ async function generateSummary(context: vscode.ExtensionContext, text: string): 
     if (!userId) return 'User ID missing. Cannot generate summary.';
 
     try {
-        const response = await fetch('https://your-backend.vercel.app/generateSummary', {
+        const response = await fetch('https://jira-ai-helpers-l9h5lvy1v-waqar-khalids-projects-490fb453.vercel.app/generateSummary', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ description: text, userId })
