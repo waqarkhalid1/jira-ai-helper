@@ -291,7 +291,7 @@ async function generateSummary(context: vscode.ExtensionContext, text: string): 
 
     try {
         const response = await fetch(
-        'https://jira-ai-helpers.vercel.app/api/generate-summary',
+        'project_root/api/generate-summary.ts',
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
