@@ -1,28 +1,21 @@
-import OpenAI from "openai";
-
 export default async function handler(req, res) {
   try {
-    const { description } = req.body;
-
-    if (!description) {
-      return res.status(400).json({ error: "Missing ticket description" });
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Only POST allowed' });
     }
 
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const { description, userId } = req.body;
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "Summarize Jira ticket professionally." },
-        { role: "user", content: description }
-      ]
+    if (!description || !userId) {
+      return res.status(400).json({ error: 'Missing description or userId' });
+    }
+
+    // Temporary dummy response
+    return res.status(200).json({
+      summary: `AI Summary is working for user: ${userId}`
     });
 
-    const summary = response.choices[0].message.content;
-    return res.status(200).json({ summary });
-
-  } catch (error) {
-    console.error("AI SUMMARY ERROR:", error);
-    res.status(500).json({ error: "AI summary failed" });
+  } catch (err) {
+    return res.status(500).json({ error: 'Server error', details: err });
   }
 }
