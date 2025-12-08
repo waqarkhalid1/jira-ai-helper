@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Only POST allowed' });
+      return res.status(405).json({ error: 'Only POST method allowed' });
     }
 
     const { description, userId } = req.body;
@@ -10,12 +10,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing description or userId' });
     }
 
-    // Temporary dummy response
     return res.status(200).json({
-      summary: `AI Summary is working for user: ${userId}`
+      summary: `AI Summary generated for user ${userId}: ${description.substring(0, 50)}...`
     });
 
-  } catch (err) {
-    return res.status(500).json({ error: 'Server error', details: err });
+  } catch (error) {
+    return res.status(500).json({ error: "Server error", details: error.toString() });
   }
 }
