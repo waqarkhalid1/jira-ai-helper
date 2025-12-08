@@ -2,11 +2,14 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import fetch from 'node-fetch';
 
+// Change this to your Vercel deployment domain or set workspace setting "jiraAi.backendUrl"
+const DEFAULT_BACKEND_URL = 'https://jira-ai-helpers.vercel.app';
+
 // -------------------- Activate Extension --------------------
 export function activate(context: vscode.ExtensionContext) {
     console.log('Jira AI Helper activated');
 
-    // 1️⃣ Status Bar Item
+    // Status Bar Item
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     statusBarItem.text = `$(server) Jira AI`;
     statusBarItem.tooltip = 'Click to fetch Jira tickets or manage connections';
@@ -14,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
-    // 2️⃣ Direct fetch command
+    // Direct fetch command
     const directFetchCmd = vscode.commands.registerCommand('jiraAi.fetchTicket', async () => {
         try {
             const connections = await getAllConnections(context);
@@ -33,17 +36,12 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(directFetchCmd);
 
-    // 3️⃣ Main menu command
+    // Main menu command
     const disposableMenu = vscode.commands.registerCommand('jiraAi.showMenu', async () => {
         try {
             const connections = await getAllConnections(context);
 
-            const menuOptions: string[] = [
-                'Fetch Ticket',
-                'Connect / Add Jira',
-                'Manage Connections'
-            ];
-
+            const menuOptions: string[] = ['Fetch Ticket', 'Connect / Add Jira', 'Manage Connections'];
             const choice = await vscode.window.showQuickPick(menuOptions, { placeHolder: 'Select an action' });
             if (!choice) return;
 
@@ -66,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(disposableMenu);
 
-    // 4️⃣ Auto setup first-time user
+    // Auto setup first-time user
     (async () => {
         try {
             const list = await context.secrets.get('jira-connections');
@@ -75,7 +73,6 @@ export function activate(context: vscode.ExtensionContext) {
                 await connectJira(context);
             }
 
-            // Create unique userId for usage tracking
             let userId = await context.secrets.get('jiraAi-userId');
             if (!userId) {
                 userId = crypto.randomUUID();
@@ -87,7 +84,7 @@ export function activate(context: vscode.ExtensionContext) {
     })();
 }
 
-// -------------------- Connect / Add Jira --------------------
+// Connect / Add Jira
 async function connectJira(context: vscode.ExtensionContext): Promise<void> {
     try {
         const jiraName = await vscode.window.showInputBox({ prompt: 'Connection Name (e.g. Main Portal)', ignoreFocusOut: true });
@@ -116,7 +113,7 @@ async function connectJira(context: vscode.ExtensionContext): Promise<void> {
     }
 }
 
-// -------------------- Get all connections --------------------
+// Get all connections
 async function getAllConnections(context: vscode.ExtensionContext): Promise<string[]> {
     try {
         const list = await context.secrets.get('jira-connections');
@@ -126,7 +123,7 @@ async function getAllConnections(context: vscode.ExtensionContext): Promise<stri
     }
 }
 
-// -------------------- Manage Connections --------------------
+// Manage Connections
 async function manageConnections(context: vscode.ExtensionContext): Promise<void> {
     try {
         const connections = await getAllConnections(context);
@@ -157,7 +154,7 @@ async function manageConnections(context: vscode.ExtensionContext): Promise<void
     }
 }
 
-// -------------------- Fetch Ticket --------------------
+// Fetch Ticket
 async function fetchTicket(context: vscode.ExtensionContext, connections: string[]): Promise<void> {
     try {
         const selected = await vscode.window.showQuickPick(connections, { placeHolder: 'Select Jira connection' });
@@ -179,59 +176,38 @@ async function fetchTicket(context: vscode.ExtensionContext, connections: string
         const description = jiraData?.fields?.description ? extractText(jiraData.fields.description) : 'No description';
         const summaryContent = buildJiraSummary(jiraData, description);
 
-        // Generate AI summary via backend
-        const aiSummary = await generateSummary(context, description);
+        // Generate AI summary via backend — pass full context and credentials
+        const userId = await context.secrets.get('jiraAi-userId') || undefined;
+        const aiSummary = await generateSummary(context, {
+            issueKey,
+            jiraUrl,
+            jiraEmail: email,
+            jiraToken: apiToken,
+            description,
+            userId
+        });
 
         // Create Webview Panel
-        const panel = vscode.window.createWebviewPanel(
-            'jiraAiSummary', // internal identifier
-            `Jira AI Summary - ${issueKey}`, // title of panel
-            vscode.ViewColumn.One, // show in first editor column
-            { enableScripts: true } // allow JS in Webview
-        );
+        const panel = vscode.window.createWebviewPanel('jiraAiSummary', `Jira AI Summary - ${issueKey}`, vscode.ViewColumn.One, { enableScripts: true });
 
-        // HTML content for Webview
         panel.webview.html = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <title>Jira AI Summary</title>
-        </head>
-        <body>
+        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Jira AI Summary</title></head><body>
             <h2>Jira Ticket Summary</h2>
             <pre>${summaryContent}</pre>
             <h2>✨ AI Summary</h2>
-            <pre id="aiSummary">Generating...</pre>
-
-            <script>
-                // Listen for messages from extension
-                window.addEventListener('message', (event) => {
-                    const msg = event.data;
-                    if (msg.command === 'setSummary') {
-                        document.getElementById('aiSummary').innerText = msg.summary;
-                    }
-                });
-            </script>
-        </body>
-        </html>
-        `;
-
-        // Send AI summary to Webview
-        panel.webview.postMessage({ command: 'setSummary', summary: aiSummary });
-
+            <pre id="aiSummary">${aiSummary}</pre>
+        </body></html>`;
 
         await vscode.window.showQuickPick(['Do manually', 'Send to Copilot', 'Send to Cursor'], { placeHolder: 'Next step' });
-
     } catch (err) {
         console.error('fetchTicket error:', err);
     }
 }
 
-// -------------------- Fetch Jira Ticket Data --------------------
+// Fetch Jira Ticket Data
 async function fetchJiraIssue(jiraUrl: string, issueKey: string, email: string, apiToken: string) {
     try {
-        const response = await fetch(`${jiraUrl}/rest/api/3/issue/${issueKey}`, {
+        const response = await fetch(`${jiraUrl.replace(/\/+$/, '')}/rest/api/3/issue/${issueKey}`, {
             headers: {
                 "Authorization": "Basic " + Buffer.from(`${email}:${apiToken}`).toString("base64"),
                 "Accept": "application/json"
@@ -244,7 +220,7 @@ async function fetchJiraIssue(jiraUrl: string, issueKey: string, email: string, 
     }
 }
 
-// -------------------- Build Jira Summary --------------------
+// Build Jira Summary
 function buildJiraSummary(jiraData: any, description: string): string {
     const key = jiraData?.key || 'UNKNOWN';
     const fields = jiraData?.fields || {};
@@ -274,7 +250,6 @@ ${description}
 `;
 }
 
-// -------------------- Extract Jira Description --------------------
 function extractText(node: any): string {
     if (!node) return '';
     if (typeof node === 'string') return node;
@@ -284,27 +259,44 @@ function extractText(node: any): string {
     return '';
 }
 
-// -------------------- Generate AI Summary via Backend --------------------
-async function generateSummary(context: vscode.ExtensionContext, text: string): Promise<string> {
-    const userId = await context.secrets.get('jiraAi-userId');
-    if (!userId) return 'User ID missing. Cannot generate summary.';
-
+// Generate AI Summary via backend — sends absolute URL to serverless function
+async function generateSummary(context: vscode.ExtensionContext, payload: {
+    issueKey: string,
+    jiraUrl: string | undefined,
+    jiraEmail?: string | undefined,
+    jiraToken?: string | undefined,
+    description?: string,
+    userId?: string | undefined
+}): Promise<string> {
     try {
-        const response = await fetch(
-        'project_root/api/generate-summary.ts',
-        {
+        // Allow overriding backend URL via workspace setting
+        const cfg = vscode.workspace.getConfiguration('jiraAi');
+        const backend = (cfg.get('backendUrl') as string) || DEFAULT_BACKEND_URL;
+        const endpoint = `${backend.replace(/\/+$/, '')}/api/generate-summary`;
+
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ description: text, userId })
-        }
-        );
+            body: JSON.stringify(payload)
+        });
+
         const data = await response.json();
-        return data.summary || data.error || 'No summary generated';
+        // If backend returns parsed summary object, show readable text
+        if (data?.summary) {
+            if (typeof data.summary === 'string') return data.summary;
+            // if summary is structured
+            if (data.summary.one_line_summary) {
+                const tasks = (data.summary.tasks || []).map((t: string) => `- ${t}`).join('\n');
+                return `${data.summary.one_line_summary}\n\nTasks:\n${tasks}\n\nFinal comment:\n${data.summary.final_comment || ''}`;
+            }
+            // if backend returned raw object, stringify it (for debugging)
+            return JSON.stringify(data.summary, null, 2);
+        }
+        return data?.error || 'No summary generated';
     } catch (err) {
         console.error('generateSummary error:', err);
         return 'Failed to generate summary';
     }
 }
 
-// -------------------- Deactivate --------------------
 export function deactivate() {}
