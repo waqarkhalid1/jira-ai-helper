@@ -290,11 +290,14 @@ async function generateSummary(context: vscode.ExtensionContext, text: string): 
     if (!userId) return 'User ID missing. Cannot generate summary.';
 
     try {
-        const response = await fetch('https://jira-ai-helpers-l9h5lvy1v-waqar-khalids-projects-490fb453.vercel.app/generateSummary', {
+        const response = await fetch(
+        'https://jira-ai-helpers.vercel.app/api/generate-summary',
+        {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ description: text, userId })
-        });
+        }
+        );
         const data = await response.json();
         return data.summary || data.error || 'No summary generated';
     } catch (err) {
