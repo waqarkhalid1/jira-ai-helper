@@ -281,15 +281,12 @@ async function generateSummary(context: vscode.ExtensionContext, payload: {
         });
 
         const data = await response.json();
-        // If backend returns parsed summary object, show readable text
         if (data?.summary) {
             if (typeof data.summary === 'string') return data.summary;
-            // if summary is structured
             if (data.summary.one_line_summary) {
                 const tasks = (data.summary.tasks || []).map((t: string) => `- ${t}`).join('\n');
                 return `${data.summary.one_line_summary}\n\nTasks:\n${tasks}\n\nFinal comment:\n${data.summary.final_comment || ''}`;
             }
-            // if backend returned raw object, stringify it (for debugging)
             return JSON.stringify(data.summary, null, 2);
         }
         return data?.error || 'No summary generated';
