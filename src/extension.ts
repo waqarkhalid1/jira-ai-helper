@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
-const fetch: any = require('node-fetch');
+import fetch from 'node-fetch';
 
 // -------------------- Activate Extension --------------------
 export function activate(context: vscode.ExtensionContext) {
