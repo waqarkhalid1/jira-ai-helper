@@ -59,7 +59,7 @@ module.exports = async (req, res) => {
       'Return ONLY valid JSON with keys: one_line_summary (string), tasks (array of short actionable tasks), final_comment (string).'
     ].join('\n');
 
-    const openaiKey = process.env.OPENAI_API_KEY || process.env.Jira_AI_Key || process.env.JIRA_AI_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY;
     if (!openaiKey) {
       return res.status(500).json({ error: 'OpenAI API key not configured on the server. Set OPENAI_API_KEY.' });
     }
