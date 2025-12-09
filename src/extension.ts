@@ -13,7 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
             const jiraUrl = config.get<string>("jiraUrl");
             const email = config.get<string>("email");
             const apiToken = config.get<string>("apiToken");
-            const summaryApi = "https://jira-ai-helper-31chw2uiv-waqar-khalids-projects-490fb2uiv.vercel.app/api/generate-summary";
+            const summaryApi = "https://jira-ai-helper-fe7rlstn5-waqar-khalids-projects-490fb453.vercel.app/api/generate-summary";
  // Vercel function URL
 
             if (!jiraUrl || !email || !apiToken || !summaryApi) {
