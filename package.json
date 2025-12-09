@@ -1,8 +1,8 @@
 {
   "name": "jira-ai-helper",
   "displayName": "Jira AI Helper",
-  "description": "Fetch Jira issue -> show human-readable summary and optionally send to Copilot/Cursor",
-  "version": "0.0.1",
+  "description": "Fetch Jira issue + comments and provide AI summary in VS Code",
+  "version": "0.0.2",
   "publisher": "waqarkhalid5050",
   "engines": {
     "vscode": "^1.70.0"
@@ -15,33 +15,48 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Jira AI Helper",
+      "properties": {
+        "jiraAiHelper.jiraUrl": {
+          "type": "string",
+          "description": "Jira base URL"
+        },
+        "jiraAiHelper.email": {
+          "type": "string",
+          "description": "Jira account email"
+        },
+        "jiraAiHelper.apiToken": {
+          "type": "string",
+          "description": "Jira API token"
+        },
+        "jiraAiHelper.summaryApiUrl": {
+          "type": "string",
+          "description": "Vercel/OpenAI summary API URL"
+        }
+      }
+    },
     "commands": [
       {
         "command": "jiraAi.fetchTicket",
-        "title": "Jira AI: Fetch Ticket (Copilot)"
+        "title": "Jira AI: Fetch Ticket & Summary"
       }
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/node-fetch": "^2.6.13",
     "@types/vscode": "^1.106.1",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2",
-    "eslint": "^9.39.1",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.3"
-  },
-  "dependencies": {
-    "node-fetch": "^2.7.0"
+    "typescript": "^5.9.3"
   }
 }
